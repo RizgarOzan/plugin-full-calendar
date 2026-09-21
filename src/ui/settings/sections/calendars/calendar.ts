@@ -28,6 +28,7 @@ import type { RecurringInstanceState } from '../../../../providers/Provider';
 import { createDateNavigation } from '../../../../features/navigation/DateNavigation';
 import {
   patchRRuleTimezoneExpansion,
+  resolveEffectiveTimezone,
   type RRulePluginLike
 } from '../../../../features/timezone/Timezone';
 import { PluginState } from '../../../../core/PluginState';
@@ -167,7 +168,7 @@ export async function renderCalendar(
     const rrulePlugin = ((rrule as unknown as { default?: RRulePluginLike }).default ||
       rrule) as unknown as RRulePluginLike;
 
-    patchRRuleTimezoneExpansion(rrulePlugin, settings?.timeZone);
+    patchRRuleTimezoneExpansion(rrulePlugin, resolveEffectiveTimezone(settings?.timeZone));
   }
 
   const {
@@ -989,7 +990,7 @@ export async function renderCalendar(
       ? { schedulerLicenseKey: 'GPL-My-Project-Is-Open-Source' }
       : {}),
     customButtons: customButtonConfig,
-    timeZone: settings?.timeZone,
+    timeZone: resolveEffectiveTimezone(settings?.timeZone),
     height: settings?.height,
     // Set the FullCalendar locale so month names, day names, and toolbar button
     // labels match the user's Obsidian language selection.
