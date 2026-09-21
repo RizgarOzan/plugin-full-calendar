@@ -888,6 +888,22 @@
           "label": "Password",
           "description": "Password for the account"
         },
+        "serverUrl": {
+          "label": "Server URL or Domain",
+          "description": "Enter your CalDAV server URL or domain (e.g. caldav.fastmail.com or https://caldav.fastmail.com/)"
+        },
+        "discoverButton": "Find Calendars & Tasks",
+        "discovering": "Discovering...",
+        "selectTitle": "Discovered Calendars & Task Lists",
+        "selectDescription": "Select the calendars and reminder lists you want to sync.",
+        "sectionCalendars": "Calendars (Events)",
+        "sectionTasks": "Task & Reminder Lists (VTODO)",
+        "noCollectionsFound": "No CalDAV collections found on this server. Check your credentials or enter a direct collection URL.",
+        "importSelected": "Import Selected ({{count}})",
+        "selectAll": "Select all",
+        "deselectAll": "Deselect all",
+        "backButton": "Back",
+        "advancedToggle": "Manual collection URL",
         "importButton": "Import Calendars",
         "importing": "Importing...",
         "importFailed": "Failed to import calendar",

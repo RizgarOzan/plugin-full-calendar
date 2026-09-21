@@ -8,10 +8,10 @@ Tested with iCloud Reminders via its CalDAV `VTODO` collection. This is observed
 
 1. Open **Settings → Full Calendar → Calendar Sources**.
 2. Select **CalDAV Tasks**, then add the source.
-3. Enter the direct task-list collection URL, username, and password.
-4. For iCloud, use the Apple Account email and an [Apple app-specific password](https://support.apple.com/en-us/HT204397). Do not use the normal Apple Account password.
-
-The collection URL must point to the task/reminder calendar itself, for example `https://example-caldav-server/<account>/calendars/tasks/`. Paths vary by server and account. Automatic principal and task-list discovery is not yet included.
+3. Enter your CalDAV server domain or URL (e.g. `caldav.fastmail.com` or `https://caldav.fastmail.com/`), username, and password. Alternatively, check **Manual collection URL** if you want to enter a direct collection URL.
+4. Click **Find Calendars & Tasks**. Full Calendar uses standard CalDAV auto-discovery (RFC 5397 / RFC 4791) to discover all your reminder and task collections.
+5. Select the task lists you want to sync (e.g. *Habits*, *Work*, *Personal*) and click **Import Selected**.
+6. For iCloud, use your Apple Account email and an [Apple app-specific password](https://support.apple.com/en-us/HT204397). For Fastmail, use your Fastmail address and an app password.
 
 Passwords follow Full Calendar's existing CalDAV credential handling. When Obsidian SecretStorage is available, the saved password is removed from plugin settings and is not displayed in the calendar-source row.
 
@@ -62,7 +62,6 @@ Never place credentials or unredacted server responses in screenshots, logs, fix
 
 ## Limitations
 
-- Entering an account root and automatically discovering task lists is not yet supported; use a direct collection URL.
 - Existing `RRULE` data is displayed and preserved, but creating/changing recurrence and editing or completing one recurring instance are not yet supported.
 - Cancelled tasks are not rendered because the shared task model has no separate cancelled visual state.
 - Server-side sync tokens are not yet used; refreshes query the VTODO collection and reconcile stable href/UID/ETag identity.

@@ -3,7 +3,7 @@
  */
 import { parseCalendarInfo } from '../../types/calendar_settings';
 import { obsidianFetch } from './obsidian-fetch_caldav';
-import { importCalendars } from './import_caldav';
+import { buildCalDAVSourceFromDiscovered, importCalendars } from './import_caldav';
 
 jest.mock('./obsidian-fetch_caldav', () => ({ obsidianFetch: jest.fn() }));
 jest.mock('../../features/i18n/i18n', () => ({ t: (key: string) => key }));
@@ -63,5 +63,32 @@ describe('CalDAV Tasks configuration', () => {
         'caldavtasks'
       )
     ).rejects.toThrow('noVtodoCapability');
+  });
+
+  it('builds CalDAVTaskSource from discovered collection', () => {
+    const existingIds: string[] = [];
+    const source = buildCalDAVSourceFromDiscovered(
+      {
+        href: 'https://caldav.fastmail.com/dav/calendars/user/alice/habits/',
+        displayName: 'Habits',
+        color: '#4CAF50',
+        supportedComponents: ['VTODO'],
+        type: 'caldavtasks',
+        serverUrl: 'https://caldav.fastmail.com/'
+      },
+      { type: 'basic', username: 'alice', password: 'pwd' },
+      existingIds
+    );
+
+    expect(source).toMatchObject({
+      type: 'caldavtasks',
+      id: 'caldavtasks_1',
+      name: 'Habits',
+      homeUrl: 'https://caldav.fastmail.com/dav/calendars/user/alice/habits/',
+      color: '#4CAF50',
+      username: 'alice',
+      password: 'pwd'
+    });
+    expect(existingIds).toContain('caldavtasks_1');
   });
 });
