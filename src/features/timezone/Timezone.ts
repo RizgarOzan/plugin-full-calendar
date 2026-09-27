@@ -18,7 +18,7 @@ import { showNotice } from '../../utils/showNotice';
 
 import { PluginState } from '../../core/PluginState';
 
-import { DateTime, Settings } from 'luxon';
+import { DateTime, FixedOffsetZone, Settings } from 'luxon';
 import ical from 'ical.js';
 
 import FullCalendarPlugin from '../../main';
@@ -122,46 +122,170 @@ export async function manageTimezone(_plugin: FullCalendarPlugin): Promise<void>
  */
 function mapWindowsTimezoneToIANA(windowsTz: string): string | null {
   const windowsToIANA: Record<string, string> = {
-    // Western Europe
+    // Dateline / UTC Offsets
+    'Dateline Standard Time': 'Etc/GMT+12',
+    'UTC-11': 'Etc/GMT+11',
+    'UTC-09': 'Etc/GMT+9',
+    'UTC-08': 'Etc/GMT+8',
+    'UTC-02': 'Etc/GMT+2',
+    UTC: 'Etc/UTC',
+    'UTC+12': 'Etc/GMT-12',
+    'UTC+13': 'Etc/GMT-13',
+
+    // North America
+    'Aleutian Standard Time': 'America/Adak',
+    'Hawaiian Standard Time': 'Pacific/Honolulu',
+    'Alaskan Standard Time': 'America/Anchorage',
+    'Pacific Standard Time': 'America/Los_Angeles',
+    'Pacific Standard Time (Mexico)': 'America/Tijuana',
+    'US Mountain Standard Time': 'America/Phoenix',
+    'Mountain Standard Time': 'America/Denver',
+    'Mountain Standard Time (Mexico)': 'America/Mazatlan',
+    'Yukon Standard Time': 'America/Whitehorse',
+    'Central Standard Time': 'America/Chicago',
+    'Central Standard Time (Mexico)': 'America/Mexico_City',
+    'Canada Central Standard Time': 'America/Regina',
+    'Eastern Standard Time': 'America/New_York',
+    'Eastern Standard Time (Mexico)': 'America/Cancun',
+    'US Eastern Standard Time': 'America/Indianapolis',
+    'Atlantic Standard Time': 'America/Halifax',
+    'Newfoundland Standard Time': 'America/St_Johns',
+
+    // Central America & Caribbean
+    'Central America Standard Time': 'America/Guatemala',
+    'Cuba Standard Time': 'America/Havana',
+    'Haiti Standard Time': 'America/Port-au-Prince',
+    'Turks And Caicos Standard Time': 'America/Grand_Turk',
+
+    // South America
+    'SA Pacific Standard Time': 'America/Bogota',
+    'Venezuela Standard Time': 'America/Caracas',
+    'SA Western Standard Time': 'America/Caracas',
+    'Central Brazilian Standard Time': 'America/Cuiaba',
+    'Pacific SA Standard Time': 'America/Santiago',
+    'Paraguay Standard Time': 'America/Asuncion',
+    'E. South America Standard Time': 'America/Sao_Paulo',
+    'SA Eastern Standard Time': 'America/Sao_Paulo',
+    'Argentina Standard Time': 'America/Buenos_Aires',
+    'Montevideo Standard Time': 'America/Montevideo',
+    'Magallanes Standard Time': 'America/Punta_Arenas',
+    'Bahia Standard Time': 'America/Bahia',
+    'Tocantins Standard Time': 'America/Araguaina',
+
+    // Europe
+    'GMT Standard Time': 'Europe/London',
+    'Greenwich Standard Time': 'Atlantic/Reykjavik',
     'W. Europe Standard Time': 'Europe/Berlin',
     'Central Europe Standard Time': 'Europe/Budapest',
+    'Romance Standard Time': 'Europe/Paris',
+    'Central European Standard Time': 'Europe/Warsaw',
     'E. Europe Standard Time': 'Europe/Bucharest',
     'GTB Standard Time': 'Europe/Bucharest',
+    'FLE Standard Time': 'Europe/Kyiv',
+    'Kaliningrad Standard Time': 'Europe/Kaliningrad',
     'Russian Standard Time': 'Europe/Moscow',
-    'GMT Standard Time': 'Europe/London',
-    'Greenwich Standard Time': 'Europe/London',
-    // Americas
-    'Eastern Standard Time': 'America/New_York',
-    'Central Standard Time': 'America/Chicago',
-    'Mountain Standard Time': 'America/Denver',
-    'Pacific Standard Time': 'America/Los_Angeles',
-    'Alaskan Standard Time': 'America/Anchorage',
-    'Hawaiian Standard Time': 'Pacific/Honolulu',
-    'Atlantic Standard Time': 'America/Halifax',
-    'Central America Standard Time': 'America/Guatemala',
-    'Mexico Standard Time': 'America/Mexico_City',
-    'SA Pacific Standard Time': 'America/Bogota',
-    'SA Western Standard Time': 'America/Caracas',
-    'SA Eastern Standard Time': 'America/Sao_Paulo',
-    'E. South America Standard Time': 'America/Sao_Paulo',
-    'Argentina Standard Time': 'America/Buenos_Aires',
-    'Pacific SA Standard Time': 'America/Santiago',
-    // Asia
-    'Tokyo Standard Time': 'Asia/Tokyo',
-    'Korea Standard Time': 'Asia/Seoul',
-    'China Standard Time': 'Asia/Shanghai',
-    'India Standard Time': 'Asia/Kolkata',
-    'Singapore Standard Time': 'Asia/Singapore',
-    'W. Australia Standard Time': 'Australia/Perth',
-    'AUS Eastern Standard Time': 'Australia/Sydney',
-    'New Zealand Standard Time': 'Pacific/Auckland',
-    // Middle East
-    'Arab Standard Time': 'Asia/Riyadh',
-    'Israel Standard Time': 'Asia/Jerusalem',
+    'Belarus Standard Time': 'Europe/Minsk',
+    'Volgograd Standard Time': 'Europe/Volgograd',
+    'Astrakhan Standard Time': 'Europe/Astrakhan',
+    'Russia Time Zone 3': 'Europe/Samara',
+    'Saratov Standard Time': 'Europe/Saratov',
     'Turkey Standard Time': 'Europe/Istanbul',
+
     // Africa
+    'Morocco Standard Time': 'Africa/Casablanca',
+    'Sao Tome Standard Time': 'Africa/Sao_Tome',
+    'W. Central Africa Standard Time': 'Africa/Lagos',
     'South Africa Standard Time': 'Africa/Johannesburg',
-    'Egypt Standard Time': 'Africa/Cairo'
+    'Egypt Standard Time': 'Africa/Cairo',
+    'E. Africa Standard Time': 'Africa/Nairobi',
+    'South Sudan Standard Time': 'Africa/Juba',
+    'Sudan Standard Time': 'Africa/Khartoum',
+    'Libya Standard Time': 'Africa/Tripoli',
+    'Namibia Standard Time': 'Africa/Windhoek',
+
+    // Middle East
+    'Jordan Standard Time': 'Asia/Amman',
+    'Middle East Standard Time': 'Asia/Beirut',
+    'Syria Standard Time': 'Asia/Damascus',
+    'West Bank Standard Time': 'Asia/Hebron',
+    'Israel Standard Time': 'Asia/Jerusalem',
+    'Arabic Standard Time': 'Asia/Baghdad',
+    'Arab Standard Time': 'Asia/Riyadh',
+    'Iran Standard Time': 'Asia/Tehran',
+    'Arabian Standard Time': 'Asia/Dubai',
+
+    // Caucasus & Central Asia
+    'Azerbaijan Standard Time': 'Asia/Baku',
+    'Georgian Standard Time': 'Asia/Tbilisi',
+    'Caucasus Standard Time': 'Asia/Yerevan',
+    'Afghanistan Standard Time': 'Asia/Kabul',
+    'West Asia Standard Time': 'Asia/Tashkent',
+    'Ekaterinburg Standard Time': 'Asia/Yekaterinburg',
+    'Pakistan Standard Time': 'Asia/Karachi',
+    'Qyzylorda Standard Time': 'Asia/Qyzylorda',
+    'Central Asia Standard Time': 'Asia/Almaty',
+
+    // South Asia
+    'India Standard Time': 'Asia/Kolkata',
+    'Sri Lanka Standard Time': 'Asia/Colombo',
+    'Nepal Standard Time': 'Asia/Kathmandu',
+    'Bangladesh Standard Time': 'Asia/Dhaka',
+
+    // East & Southeast Asia
+    'Myanmar Standard Time': 'Asia/Yangon',
+    'SE Asia Standard Time': 'Asia/Bangkok',
+    'China Standard Time': 'Asia/Shanghai',
+    'Singapore Standard Time': 'Asia/Singapore',
+    'Taipei Standard Time': 'Asia/Taipei',
+    'Ulaanbaatar Standard Time': 'Asia/Ulaanbaatar',
+    'Tokyo Standard Time': 'Asia/Tokyo',
+    'North Korea Standard Time': 'Asia/Pyongyang',
+    'Korea Standard Time': 'Asia/Seoul',
+
+    // North Asia (Russia)
+    'Omsk Standard Time': 'Asia/Omsk',
+    'Altai Standard Time': 'Asia/Barnaul',
+    'W. Mongolia Standard Time': 'Asia/Hovd',
+    'North Asia Standard Time': 'Asia/Krasnoyarsk',
+    'N. Central Asia Standard Time': 'Asia/Novosibirsk',
+    'Tomsk Standard Time': 'Asia/Tomsk',
+    'North Asia East Standard Time': 'Asia/Irkutsk',
+    'Transbaikal Standard Time': 'Asia/Chita',
+    'Yakutsk Standard Time': 'Asia/Yakutsk',
+    'Vladivostok Standard Time': 'Asia/Vladivostok',
+    'Russia Time Zone 10': 'Asia/Srednekolymsk',
+    'Magadan Standard Time': 'Asia/Magadan',
+    'Sakhalin Standard Time': 'Asia/Sakhalin',
+    'Russia Time Zone 11': 'Asia/Kamchatka',
+
+    // Australia & Pacific
+    'W. Australia Standard Time': 'Australia/Perth',
+    'Aus Central W. Standard Time': 'Australia/Eucla',
+    'Cen. Australia Standard Time': 'Australia/Adelaide',
+    'AUS Central Standard Time': 'Australia/Darwin',
+    'E. Australia Standard Time': 'Australia/Brisbane',
+    'AUS Eastern Standard Time': 'Australia/Sydney',
+    'Tasmania Standard Time': 'Australia/Hobart',
+    'Lord Howe Standard Time': 'Australia/Lord_Howe',
+    'West Pacific Standard Time': 'Pacific/Port_Moresby',
+    'Bougainville Standard Time': 'Pacific/Bougainville',
+    'Norfolk Standard Time': 'Pacific/Norfolk',
+    'Central Pacific Standard Time': 'Pacific/Guadalcanal',
+    'New Zealand Standard Time': 'Pacific/Auckland',
+    'Fiji Standard Time': 'Pacific/Fiji',
+    'Chatham Islands Standard Time': 'Pacific/Chatham',
+    'Tonga Standard Time': 'Pacific/Tongatapu',
+    'Samoa Standard Time': 'Pacific/Apia',
+    'Line Islands Standard Time': 'Pacific/Kiritimati',
+    'Easter Island Standard Time': 'Pacific/Easter',
+    'Marquesas Standard Time': 'Pacific/Marquesas',
+
+    // Atlantic & Indian Oceans
+    'Azores Standard Time': 'Atlantic/Azores',
+    'Cape Verde Standard Time': 'Atlantic/Cape_Verde',
+    'Greenland Standard Time': 'America/Godthab',
+    'Saint Pierre Standard Time': 'America/Miquelon',
+    'Mauritius Standard Time': 'Indian/Mauritius'
   };
 
   return windowsToIANA[windowsTz] || null;
@@ -428,18 +552,60 @@ export function parseTimezoneAwareString(t: ical.Time): DateTime {
 
   // Check if setting the zone resulted in an invalid DateTime.
   if (!zonedDt.isValid) {
-    // Attempt UTC fallback
-    zonedDt = DateTime.fromObject(
-      {
-        year: t.year,
-        month: t.month,
-        day: t.day,
-        hour: t.hour,
-        minute: t.minute,
-        second: t.second || 0
-      },
-      { zone: 'utc' }
-    );
+    // Attempt fallback using VTIMEZONE offset if available from ical.Time
+    let offsetSeconds: number | undefined;
+    const candidateTime = t as unknown as { utcOffset?: () => number };
+    try {
+      if (typeof candidateTime.utcOffset === 'function') {
+        const val = candidateTime.utcOffset();
+        if (typeof val === 'number' && !Number.isNaN(val)) {
+          offsetSeconds = val;
+        }
+      }
+    } catch {
+      // Ignore calculation error
+    }
+
+    if (offsetSeconds !== undefined && t.zone && t.zone.tzid && t.zone.tzid !== 'floating') {
+      const offsetMinutes = Math.round(offsetSeconds / 60);
+      const fixedZone = FixedOffsetZone.instance(offsetMinutes);
+      zonedDt = DateTime.fromObject(
+        {
+          year: t.year,
+          month: t.month,
+          day: t.day,
+          hour: t.hour,
+          minute: t.minute,
+          second: t.second || 0
+        },
+        { zone: fixedZone }
+      );
+      if (zonedDt.isValid) {
+        console.warn(
+          `Full Calendar Timezone: Unrecognized timezone identifier "${rawZone}". Falling back to VTIMEZONE offset (${zonedDt.zoneName}).`
+        );
+      }
+    }
+
+    // If still invalid or no VTIMEZONE offset was available, fallback to UTC
+    if (!zonedDt.isValid) {
+      if (rawZone && rawZone !== 'utc') {
+        console.warn(
+          `Full Calendar Timezone: Unrecognized timezone identifier "${rawZone}" with no valid offset. Falling back to UTC.`
+        );
+      }
+      zonedDt = DateTime.fromObject(
+        {
+          year: t.year,
+          month: t.month,
+          day: t.day,
+          hour: t.hour,
+          minute: t.minute,
+          second: t.second || 0
+        },
+        { zone: 'utc' }
+      );
+    }
 
     if (!zonedDt.isValid) {
       // If even UTC fails, try parsing the raw value

@@ -1,5 +1,7 @@
 import { rrulestr } from 'rrule';
+import ical from 'ical.js';
 import {
+  parseTimezoneAwareString,
   patchRRuleTimezoneExpansion,
   resetRRulePatchStateForTests,
   resolveEffectiveTimezone,
@@ -586,6 +588,13 @@ describe('resolveSourceZone', () => {
     expect(resolveSourceZone('Argentina Standard Time')).toBe('America/Buenos_Aires');
     expect(resolveSourceZone('GMT Standard Time')).toBe('Europe/London');
     expect(resolveSourceZone('Eastern Standard Time')).toBe('America/New_York');
+    expect(resolveSourceZone('Romance Standard Time')).toBe('Europe/Paris');
+    expect(resolveSourceZone('FLE Standard Time')).toBe('Europe/Kyiv');
+    expect(resolveSourceZone('SE Asia Standard Time')).toBe('Asia/Bangkok');
+    expect(resolveSourceZone('US Eastern Standard Time')).toBe('America/Indianapolis');
+    expect(resolveSourceZone('Canada Central Standard Time')).toBe('America/Regina');
+    expect(resolveSourceZone('Cen. Australia Standard Time')).toBe('Australia/Adelaide');
+    expect(resolveSourceZone('W. Central Africa Standard Time')).toBe('Africa/Lagos');
   });
 
   it('falls back to fallbackZone when event timezone is missing, empty, or whitespace', () => {
@@ -637,5 +646,88 @@ describe('resolveEffectiveTimezone', () => {
     const fallback = resolveEffectiveTimezone();
     expect(resolveEffectiveTimezone('floating')).toBe(fallback);
     expect(resolveEffectiveTimezone('Invalid/BogusZone')).toBe(fallback);
+  });
+});
+
+describe('parseTimezoneAwareString', () => {
+  it('handles date-only (all day) times as UTC dates', () => {
+    const time = new ical.Time({ year: 2026, month: 5, day: 20, isDate: true });
+    const dt = parseTimezoneAwareString(time);
+    expect(dt.isValid).toBe(true);
+    expect(dt.zoneName).toBe('UTC');
+    expect(dt.toISODate()).toBe('2026-05-20');
+  });
+
+  it('maps Windows timezone to IANA zone', () => {
+    const time = new ical.Time({
+      year: 2026,
+      month: 10,
+      day: 15,
+      hour: 14,
+      minute: 0
+    });
+    time.timezone = 'E. South America Standard Time';
+    const dt = parseTimezoneAwareString(time);
+    expect(dt.isValid).toBe(true);
+    expect(dt.zoneName).toBe('America/Sao_Paulo');
+    expect(dt.toFormat('HH:mm')).toBe('14:00');
+  });
+
+  it('falls back to VTIMEZONE offset and warns when timezone is unmapped', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const mockTime = {
+      isDate: false,
+      year: 2026,
+      month: 10,
+      day: 15,
+      hour: 14,
+      minute: 0,
+      second: 0,
+      timezone: undefined,
+      zone: { tzid: 'Custom Corp Standard Time' },
+      utcOffset: () => -14400 // -04:00
+    } as unknown as ical.Time;
+
+    const dt = parseTimezoneAwareString(mockTime);
+    expect(dt.isValid).toBe(true);
+    expect(dt.zoneName).toBe('UTC-4');
+    expect(dt.toFormat('HH:mm')).toBe('14:00');
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Unrecognized timezone identifier "Custom Corp Standard Time". Falling back to VTIMEZONE offset (UTC-4).'
+      )
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it('falls back to UTC and warns when timezone is unmapped and has no valid offset', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const mockTime = {
+      isDate: false,
+      year: 2026,
+      month: 10,
+      day: 15,
+      hour: 14,
+      minute: 0,
+      second: 0,
+      timezone: 'Totally Unknown Nonexistent Timezone',
+      zone: undefined,
+      utcOffset: undefined
+    } as unknown as ical.Time;
+
+    const dt = parseTimezoneAwareString(mockTime);
+    expect(dt.isValid).toBe(true);
+    expect(dt.zoneName).toBe('UTC');
+    expect(dt.toFormat('HH:mm')).toBe('14:00');
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Unrecognized timezone identifier "Totally Unknown Nonexistent Timezone" with no valid offset. Falling back to UTC.'
+      )
+    );
+
+    warnSpy.mockRestore();
   });
 });
