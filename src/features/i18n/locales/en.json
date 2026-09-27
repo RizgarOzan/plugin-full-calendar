@@ -1453,9 +1453,10 @@
           "description": "Default view for mobile devices"
         },
         "defaultDate": {
-          "label": "Default date (optional)",
-          "description": "Date to jump to when activating workspace (e.g., \"today\", \"2024-01-01\")",
-          "placeholder": "today, next-week, 2024-01-01"
+          "label": "Default open date",
+          "description": "Date the calendar opens to when this workspace is active (defaults to today)",
+          "placeholder": "Today",
+          "resetTooltip": "Reset to Today"
         },
         "basisQueryPath": {
           "label": "Bases query file path",

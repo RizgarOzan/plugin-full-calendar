@@ -95,6 +95,7 @@ export interface ExtraRenderProps {
   footerToolbar?: false | object;
   height?: 'auto' | number | 'parent';
   weatherHide?: boolean;
+  defaultDate?: string;
 }
 
 type TimeGridDayHeaderFormat =
@@ -1012,6 +1013,9 @@ export async function renderCalendar(
     initialView:
       settings?.initialView?.[isNarrow ? 'mobile' : 'desktop'] ||
       (isNarrow ? 'timeGrid3Days' : 'timeGridWeek'),
+    ...(settings?.defaultDate && settings.defaultDate !== 'today'
+      ? { initialDate: settings.defaultDate }
+      : {}),
     nowIndicator: true,
     scrollTimeReset: false,
     dayMaxEvents: settings?.dayMaxEvents !== undefined ? settings.dayMaxEvents : true, // Use setting override or default to true

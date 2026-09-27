@@ -1429,7 +1429,8 @@
         "defaultDate": {
           "label": "默认日期（可选）",
           "description": "激活工作区时跳转的日期（例如：\"today\"、\"2024-01-01\"）",
-          "placeholder": "today, next-week, 2024-01-01"
+          "placeholder": "today, next-week, 2024-01-01",
+          "resetTooltip": "Reset to Today"
         },
         "visibleCalendars": {
           "label": "可见日历",

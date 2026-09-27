@@ -1429,7 +1429,8 @@
         "defaultDate": {
           "label": "Standarddatum (optional)",
           "description": "Datum, zu dem beim Aktivieren des Arbeitsbereichs gesprungen wird (z.B. \"heute\", \"2024-01-01\")",
-          "placeholder": "heute, nächste-Woche, 2024-01-01"
+          "placeholder": "heute, nächste-Woche, 2024-01-01",
+          "resetTooltip": "Reset to Today"
         },
         "visibleCalendars": {
           "label": "Sichtbare Kalender",

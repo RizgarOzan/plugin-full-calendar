@@ -275,6 +275,7 @@ export class CalendarView extends ItemView implements ViewContext {
             forceNarrow: this.inSidebar,
             onViewChange: handleViewChange,
             initialView: calendarConfig.initialView,
+            defaultDate: calendarConfig.defaultDate,
             slotMinTime: calendarConfig.slotMinTime,
             slotMaxTime: calendarConfig.slotMaxTime,
             allDaySlot: calendarConfig.allDaySlot,

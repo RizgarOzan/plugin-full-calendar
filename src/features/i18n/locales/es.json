@@ -1429,7 +1429,8 @@
         "defaultDate": {
           "label": "Fecha predeterminada (opcional)",
           "description": "Fecha a la que saltar al activar el espacio de trabajo (ej., 'hoy', '2024-01-01')",
-          "placeholder": "hoy, próxima semana, 2024-01-01"
+          "placeholder": "hoy, próxima semana, 2024-01-01",
+          "resetTooltip": "Reset to Today"
         },
         "visibleCalendars": {
           "label": "Calendarios visibles",

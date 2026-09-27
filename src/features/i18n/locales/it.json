@@ -1429,7 +1429,8 @@
         "defaultDate": {
           "label": "Data predefinita (opzionale)",
           "description": "Data da visualizzare all'attivazione del workspace (es. 'oggi', '2024-01-01')",
-          "placeholder": "oggi, prossima-settimana, 2024-01-01"
+          "placeholder": "oggi, prossima-settimana, 2024-01-01",
+          "resetTooltip": "Reset to Today"
         },
         "visibleCalendars": {
           "label": "Calendari visibili",

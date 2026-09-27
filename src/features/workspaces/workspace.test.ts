@@ -10,6 +10,7 @@ import {
   FullCalendarSettings,
   DEFAULT_SETTINGS
 } from '../../types/settings';
+import { WorkspaceManager } from './WorkspaceManager';
 
 describe('Workspace functionality', () => {
   test('should create a default workspace', () => {
@@ -98,6 +99,7 @@ describe('Workspace functionality', () => {
       dayMaxEvents: 5
     };
 
+    expect(workspace.defaultDate).toBe('today');
     expect(workspace.name).toBe('Full Workspace');
     expect(workspace.defaultView?.desktop).toBe('timeGridWeek');
     expect(workspace.visibleCalendars).toContain('cal1');
@@ -108,5 +110,36 @@ describe('Workspace functionality', () => {
     expect(workspace.weekends).toBe(false);
     expect(workspace.hiddenDays).toEqual([0, 6]);
     expect(workspace.dayMaxEvents).toBe(5);
+  });
+
+  test('should apply defaultDate override when active workspace has defaultDate', () => {
+    const historicalWorkspace = createDefaultWorkspace('History Project');
+    historicalWorkspace.defaultDate = '1944-06-06';
+
+    const settings: FullCalendarSettings = {
+      ...DEFAULT_SETTINGS,
+      workspaces: [historicalWorkspace],
+      activeWorkspace: historicalWorkspace.id
+    };
+
+    const manager = new WorkspaceManager(settings);
+    const config = manager.getCalendarConfig();
+
+    expect(config.defaultDate).toBe('1944-06-06');
+  });
+
+  test('should not have defaultDate when active workspace does not specify it', () => {
+    const defaultWorkspace = createDefaultWorkspace('Standard');
+
+    const settings: FullCalendarSettings = {
+      ...DEFAULT_SETTINGS,
+      workspaces: [defaultWorkspace],
+      activeWorkspace: defaultWorkspace.id
+    };
+
+    const manager = new WorkspaceManager(settings);
+    const config = manager.getCalendarConfig();
+
+    expect(config.defaultDate).toBeUndefined();
   });
 });

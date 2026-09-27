@@ -1429,7 +1429,8 @@
         "defaultDate": {
           "label": "Date par défaut (optionnel)",
           "description": "Date à afficher lors de l'activation de l'espace de travail (ex : \"aujourd'hui\", \"2024-01-01\")",
-          "placeholder": "aujourd'hui, semaine-prochaine, 2024-01-01"
+          "placeholder": "aujourd'hui, semaine-prochaine, 2024-01-01",
+          "resetTooltip": "Reset to Today"
         },
         "visibleCalendars": {
           "label": "Calendriers visibles",

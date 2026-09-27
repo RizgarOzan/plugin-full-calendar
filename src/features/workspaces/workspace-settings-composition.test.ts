@@ -57,6 +57,10 @@ class MockWorkspaceManager {
       workspaceSettings.dayMaxEvents = workspace.dayMaxEvents;
     }
 
+    if (workspace.defaultDate !== undefined) {
+      workspaceSettings.defaultDate = workspace.defaultDate;
+    }
+
     return workspaceSettings;
   }
 }
@@ -225,5 +229,24 @@ describe('Workspace settings composition (integration)', () => {
     expect(config.hiddenDays).toEqual([0, 6]);
     expect(config.dayMaxEvents).toBe(4);
     expect(config.businessHours?.enabled).toBe(true);
+  });
+
+  test('should override defaultDate when workspace defines custom open date', () => {
+    const historicalWorkspace: WorkspaceSettings = {
+      id: 'ws_history',
+      name: 'History Project',
+      defaultDate: '1944-06-06'
+    };
+
+    const settings: FullCalendarSettings = {
+      ...DEFAULT_SETTINGS,
+      workspaces: [historicalWorkspace],
+      activeWorkspace: historicalWorkspace.id
+    };
+
+    const manager = new MockWorkspaceManager(settings);
+    const config = manager.getCalendarConfig();
+
+    expect(config.defaultDate).toBe('1944-06-06');
   });
 });

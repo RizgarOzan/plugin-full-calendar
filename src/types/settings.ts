@@ -200,6 +200,7 @@ export interface FullCalendarSettings {
   defaultReminderMinutes: number;
   workspaces: WorkspaceSettings[];
   activeWorkspace: string | null; // Workspace ID, null means default view
+  defaultDate?: string;
   showEventInStatusBar: boolean;
   highlightCurrentOrNextEvent: boolean;
   enableLivePreview: boolean;
