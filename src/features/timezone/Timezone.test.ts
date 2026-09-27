@@ -1,6 +1,7 @@
 import { rrulestr } from 'rrule';
 import ical from 'ical.js';
 import {
+  getEventInstanceDate,
   parseTimezoneAwareString,
   patchRRuleTimezoneExpansion,
   resetRRulePatchStateForTests,
@@ -729,5 +730,57 @@ describe('parseTimezoneAwareString', () => {
     );
 
     warnSpy.mockRestore();
+  });
+});
+
+describe('getEventInstanceDate', () => {
+  it('respects startStr for all-day events when provided', () => {
+    // start is shifted backwards to 2026-09-13T22:00:00Z due to Europe/Vienna (UTC+2),
+    // but startStr is the exact calendar date "2026-09-14".
+    const start = new Date('2026-09-13T22:00:00.000Z');
+    const result = getEventInstanceDate(start, true, 'Europe/Vienna', '2026-09-14');
+    expect(result).toBe('2026-09-14');
+  });
+
+  it('correctly resolves instanceDate for all-day events without startStr in positive timezone offsets (Europe/Vienna UTC+2)', () => {
+    // FullCalendar toDate() produces 2026-09-13T22:00:00.000Z for Monday 2026-09-14 00:00 in Vienna.
+    // Without startStr, it must resolve to Monday 2026-09-14, NOT Sunday 2026-09-13.
+    const start = new Date('2026-09-13T22:00:00.000Z');
+    const result = getEventInstanceDate(start, true, 'Europe/Vienna');
+    expect(result).toBe('2026-09-14');
+  });
+
+  it('correctly resolves instanceDate for all-day events without startStr using displayTimezone fallback', async () => {
+    const { PluginState } = await import('../../core/PluginState');
+    jest.spyOn(PluginState, 'getSettings').mockReturnValue({
+      displayTimezone: 'Europe/Vienna'
+    } as unknown as ReturnType<typeof PluginState.getSettings>);
+
+    const start = new Date('2026-09-13T22:00:00.000Z');
+    const result = getEventInstanceDate(start, true);
+    expect(result).toBe('2026-09-14');
+  });
+
+  it('correctly resolves instanceDate for all-day events in negative timezone offsets (America/New_York UTC-4)', () => {
+    // 00:00 New York on 2026-09-14 is 04:00 UTC on 2026-09-14
+    const start = new Date('2026-09-14T04:00:00.000Z');
+    const result = getEventInstanceDate(start, true, 'America/New_York');
+    expect(result).toBe('2026-09-14');
+  });
+
+  it('correctly resolves instanceDate for timed events', () => {
+    const start = new Date('2026-09-14T08:00:00.000Z'); // 10:00 in Vienna
+    const result = getEventInstanceDate(start, false, 'Europe/Vienna');
+    expect(result).toBe('2026-09-14');
+  });
+
+  it('correctly returns date for string inputs', () => {
+    expect(getEventInstanceDate('2026-09-14')).toBe('2026-09-14');
+    expect(getEventInstanceDate('2026-09-14T10:00:00+02:00')).toBe('2026-09-14');
+  });
+
+  it('returns undefined for empty input', () => {
+    expect(getEventInstanceDate(null)).toBeUndefined();
+    expect(getEventInstanceDate(undefined)).toBeUndefined();
   });
 });

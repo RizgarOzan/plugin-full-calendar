@@ -460,14 +460,18 @@ export function getEventInstanceDate(
   if (typeof start === 'string') {
     return DateTime.fromISO(start).toISODate() || undefined;
   }
+  const effectiveZone = resolveEffectiveTimezone(timezone);
   if (allDay) {
+    if (startStr) {
+      const fromStr = DateTime.fromISO(startStr).toISODate();
+      if (fromStr) return fromStr;
+    }
     return (
-      (startStr ? DateTime.fromISO(startStr).toISODate() : null) ||
+      DateTime.fromJSDate(start).setZone(effectiveZone).toISODate() ||
       DateTime.fromJSDate(start, { zone: 'utc' }).toISODate() ||
       undefined
     );
   }
-  const effectiveZone = resolveEffectiveTimezone(timezone);
   return DateTime.fromJSDate(start).setZone(effectiveZone).toISODate() || undefined;
 }
 
