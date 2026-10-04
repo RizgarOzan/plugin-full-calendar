@@ -27,7 +27,7 @@ describe('Outlook ICS Windows timezone IDs', () => {
     ['E. South America Standard Time', '20260924', 'America/Sao_Paulo', '-03:00'],
     // No DST in Reykjavik; Europe/London would put this event at +01:00 in summer.
     ['Greenwich Standard Time', '20260715', 'Atlantic/Reykjavik', '+00:00'],
-    ['Argentina Standard Time', '20260715', 'America/Argentina/Buenos_Aires', '-03:00'],
+    ['Argentina Standard Time', '20260715', 'America/Buenos_Aires', '-03:00'],
     ['Tokyo Standard Time', '20260715', 'Asia/Tokyo', '+09:00']
   ])('maps %s to %s', (tzid, icsDate, zone, expectedOffset) => {
     const events = getEventsFromICS(outlookEvent(tzid, icsDate));
