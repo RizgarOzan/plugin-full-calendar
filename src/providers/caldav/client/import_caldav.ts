@@ -3,12 +3,43 @@ import { Authentication, CalDAVSource, CalDAVTaskSource } from '../../../types';
 import { t } from '../../../features/i18n/i18n';
 import { generateCalendarId } from '../../../types/calendar_settings';
 import { splitCalDAVUrl, ensureTrailingSlash, fetchCalendarInfo } from './helper_caldav';
+import { DiscoveredCalDAVCollection, discoverCalDAVAccount } from './caldavDiscovery';
+
+export { discoverCalDAVAccount };
+export type { DiscoveredCalDAVCollection };
+
+export type CalDAVImportSourceType = 'caldav' | 'caldavtasks';
 
 /**
- * Imports a CalDAV calendar by validating the URL using PROPFIND,
- * and auto-populates name and color from server-provided metadata.
+ * Builds a CalDAVSource or CalDAVTaskSource from a discovered collection.
  */
-export type CalDAVImportSourceType = 'caldav' | 'caldavtasks';
+export function buildCalDAVSourceFromDiscovered(
+  collection: DiscoveredCalDAVCollection,
+  auth: Authentication,
+  existingIds: string[],
+  targetType?: 'caldav' | 'caldavtasks'
+): CalDAVSource | CalDAVTaskSource {
+  const chosenType: CalDAVImportSourceType =
+    targetType || (collection.type === 'caldavtasks' ? 'caldavtasks' : 'caldav');
+
+  const id = generateCalendarId(chosenType, existingIds);
+  existingIds.push(id);
+
+  return {
+    type: chosenType,
+    id,
+    name:
+      collection.displayName ||
+      (chosenType === 'caldavtasks'
+        ? t('settings.calendars.caldavTasks.title')
+        : 'CalDAV Calendar'),
+    url: ensureTrailingSlash(collection.serverUrl),
+    homeUrl: ensureTrailingSlash(collection.href),
+    color: collection.color ?? '#888888',
+    username: auth.username,
+    password: auth.password
+  };
+}
 
 export async function importCalendars(
   auth: Authentication,

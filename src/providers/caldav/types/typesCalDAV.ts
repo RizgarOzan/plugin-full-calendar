@@ -5,6 +5,8 @@ export type CalDAVProviderConfig = {
   homeUrl: string; // Specific calendar collection URL
   username: string;
   password: string;
+  type?: 'caldav' | 'caldavtasks';
+  color?: string;
 };
 
 export type CalDAVTaskProviderConfig = CalDAVProviderConfig;

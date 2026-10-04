@@ -116,6 +116,11 @@ export class WorkspaceManager {
       };
     }
 
+    // Apply default open date override
+    if (activeConfig.defaultDate !== undefined) {
+      workspaceSettings.defaultDate = activeConfig.defaultDate;
+    }
+
     // Apply business hours override
     if (activeConfig.businessHours !== undefined) {
       workspaceSettings.businessHours = activeConfig.businessHours;

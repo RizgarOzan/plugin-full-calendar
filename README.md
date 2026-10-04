@@ -49,7 +49,7 @@ The FullCalendar Standard library is released under the [MIT License](https://op
 ## Installation
 
 1. Add to your obsidian vault from the [Obsidian Plugin Store](https://community.obsidian.md/plugins/full-calendar-remastered).
-2. Obsidian community guidelines block any on demand caching of external libraries and require all of these to be bundled into a single file. For this reason our `main.js` is 7.2 MB (380 ms loadtime). If you prefer a leaner on ~1.4MB (160ms loadtime), build it yourself via 
+2. Obsidian community guidelines block any on demand caching of external libraries and require all of these to be bundled into a single file. For this reason our `main.js` is 3.35 MB. If you prefer a leaner on ~1.4MB (160ms loadtime), build it yourself via 
 ```bash
 git clone https://github.com/obsidian-full-calendar-remastered/plugin-full-calendar.git
 pnpm run prod:lead

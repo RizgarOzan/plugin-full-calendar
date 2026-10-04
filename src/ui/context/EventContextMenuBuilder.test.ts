@@ -176,6 +176,144 @@ describe('EventContextMenuBuilder timezone instanceDate handling', () => {
 
     openOrCreateSpy.mockRestore();
   });
+
+  it('correctly passes occurrence instanceDate when deleting an all-day recurring event in positive UTC offset zone (Europe/Vienna UTC+2)', async () => {
+    const { openEventContextMenu } = await import('./EventContextMenuBuilder');
+    const { PluginState } = await import('../../core/PluginState');
+
+    const deleteEventMock = jest.fn();
+
+    // 00:00 Vienna on 2026-09-14 is 22:00 UTC on 2026-09-13
+    const viennaAllDayDate = new Date('2026-09-13T22:00:00.000Z');
+
+    const mockEvent = {
+      id: 'note-recur-1',
+      title: 'Weekly All Day Note',
+      type: 'recurring' as const,
+      daysOfWeek: ['M' as const],
+      allDay: true,
+      skipDates: []
+    };
+
+    jest.spyOn(PluginState, 'getCache').mockReturnValue({
+      store: {
+        getEventDetails: () => ({
+          calendarId: 'local-cal',
+          event: mockEvent,
+          location: { path: 'Events/Weekly All Day Note.md', lineNumber: undefined }
+        })
+      },
+      isEventEditable: () => true,
+      deleteEvent: deleteEventMock
+    } as unknown as ReturnType<typeof PluginState.getCache>);
+
+    jest.spyOn(PluginState, 'getProviderRegistry').mockReturnValue({
+      getInstance: () => ({}),
+      getCapabilities: () => ({
+        canCreate: true,
+        canEdit: true,
+        canDelete: true
+      })
+    } as unknown as ReturnType<typeof PluginState.getProviderRegistry>);
+
+    jest.spyOn(PluginState, 'getSettings').mockReturnValue({
+      displayTimezone: 'Europe/Vienna'
+    } as unknown as ReturnType<typeof PluginState.getSettings>);
+
+    const mockEventApi = {
+      id: 'note-recur-1',
+      title: 'Weekly All Day Note',
+      start: viennaAllDayDate,
+      startStr: '2026-09-14',
+      allDay: true,
+      display: 'auto'
+    };
+
+    await openEventContextMenu(
+      {} as unknown as import('../../main').default,
+      mockEventApi as unknown as import('@fullcalendar/core').EventApi,
+      {} as MouseEvent
+    );
+
+    const deleteItem = mockMenuItems.find(i => i.title === 'ui.view.contextMenu.delete');
+    expect(deleteItem).toBeDefined();
+
+    deleteItem?.onClick?.();
+    await new Promise(resolve => window.setTimeout(resolve, 10));
+
+    expect(deleteEventMock).toHaveBeenCalledWith('note-recur-1', {
+      instanceDate: '2026-09-14' // Must be Monday September 14, NOT Sunday September 13
+    });
+  });
+
+  it('correctly falls back to effectiveZone when startStr is absent on all-day recurring event in positive UTC offset zone', async () => {
+    const { openEventContextMenu } = await import('./EventContextMenuBuilder');
+    const { PluginState } = await import('../../core/PluginState');
+
+    const deleteEventMock = jest.fn();
+
+    // 00:00 Vienna on 2026-09-14 is 22:00 UTC on 2026-09-13
+    const viennaAllDayDate = new Date('2026-09-13T22:00:00.000Z');
+
+    const mockEvent = {
+      id: 'note-recur-2',
+      title: 'Weekly All Day Note 2',
+      type: 'recurring' as const,
+      daysOfWeek: ['M' as const],
+      allDay: true,
+      skipDates: []
+    };
+
+    jest.spyOn(PluginState, 'getCache').mockReturnValue({
+      store: {
+        getEventDetails: () => ({
+          calendarId: 'local-cal',
+          event: mockEvent,
+          location: { path: 'Events/Weekly All Day Note 2.md', lineNumber: undefined }
+        })
+      },
+      isEventEditable: () => true,
+      deleteEvent: deleteEventMock
+    } as unknown as ReturnType<typeof PluginState.getCache>);
+
+    jest.spyOn(PluginState, 'getProviderRegistry').mockReturnValue({
+      getInstance: () => ({}),
+      getCapabilities: () => ({
+        canCreate: true,
+        canEdit: true,
+        canDelete: true
+      })
+    } as unknown as ReturnType<typeof PluginState.getProviderRegistry>);
+
+    jest.spyOn(PluginState, 'getSettings').mockReturnValue({
+      displayTimezone: 'Europe/Vienna'
+    } as unknown as ReturnType<typeof PluginState.getSettings>);
+
+    const mockEventApi = {
+      id: 'note-recur-2',
+      title: 'Weekly All Day Note 2',
+      start: viennaAllDayDate,
+      // startStr omitted intentionally to test effectiveZone fallback
+      allDay: true,
+      display: 'auto'
+    };
+
+    await openEventContextMenu(
+      {} as unknown as import('../../main').default,
+      mockEventApi as unknown as import('@fullcalendar/core').EventApi,
+      {} as MouseEvent
+    );
+
+    const deleteItem = mockMenuItems.find(i => i.title === 'ui.view.contextMenu.delete');
+    expect(deleteItem).toBeDefined();
+
+    deleteItem?.onClick?.();
+    await new Promise(resolve => window.setTimeout(resolve, 10));
+
+    expect(deleteEventMock).toHaveBeenCalledWith('note-recur-2', {
+      instanceDate: '2026-09-14' // Must resolve to September 14 via effectiveZone, NOT September 13
+    });
+  });
 });
 
 describe('EventContextMenuBuilder location URL actions', () => {

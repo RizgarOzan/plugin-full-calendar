@@ -21,6 +21,7 @@ import { LazySettingsTab } from './ui/settings/LazySettingsTab';
 import { BreakTimerManager } from './features/break_timer/BreakTimerManager';
 import { migrateAndSanitizeSettings } from './ui/settings/utilsSettings';
 import { PLUGIN_SLUG } from './types';
+import { AgentManager } from './features/agent';
 import { DEPRECATED_PROVIDERS } from './ui/settings/deprecations';
 import EventCache from './core/EventCache';
 import { manageTimezone } from './features/timezone/Timezone';
@@ -60,10 +61,15 @@ export default class FullCalendarPlugin extends Plugin {
   #statusBarManager!: StatusBarManager;
   #fcrReminderManager!: FcrReminderManager;
   #breakTimerManager!: BreakTimerManager;
+  #agentManager!: AgentManager;
 
   #isMobile: boolean = false;
   #settingsTab?: LazySettingsTab;
   api!: PublicAPI;
+
+  get agentManager(): AgentManager {
+    return this.#agentManager;
+  }
 
   get fcrReminderManager(): FcrReminderManager {
     return this.#fcrReminderManager;
@@ -194,6 +200,8 @@ export default class FullCalendarPlugin extends Plugin {
       this.#fcrReminderManager.update(PluginState.getSettings());
       this.#breakTimerManager = new BreakTimerManager(this);
       this.#breakTimerManager.update(PluginState.getSettings());
+      this.#agentManager = new AgentManager(this);
+      void this.#agentManager.init();
 
       this.registerEvent(
         workspaceEvents.on('full-calendar:settings-updated', (settings: FullCalendarSettings) =>
@@ -540,6 +548,9 @@ export default class FullCalendarPlugin extends Plugin {
     }
     if (this.#breakTimerManager) {
       this.#breakTimerManager.unload();
+    }
+    if (this.#agentManager) {
+      this.#agentManager.unload();
     }
     PluginState.getProviderRegistry().stopListening();
     PluginState.getCache().stopListening();

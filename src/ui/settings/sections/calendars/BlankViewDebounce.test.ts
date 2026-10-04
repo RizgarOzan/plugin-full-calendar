@@ -159,4 +159,20 @@ describe('BlankViewDebounce in renderCalendar', () => {
     jest.advanceTimersByTime(300);
     expect(onBlankViewMock).not.toHaveBeenCalled();
   });
+
+  it('should pass initialDate to calendar options when defaultDate is set', async () => {
+    const renderPromise = renderCalendar(container, [], {
+      defaultDate: '1944-06-06'
+    });
+    const cal = (await renderPromise) as unknown as MockCalendarInstance;
+    expect(cal.options.initialDate).toBe('1944-06-06');
+  });
+
+  it('should not pass initialDate when defaultDate is not set or set to today', async () => {
+    const renderPromise = renderCalendar(container, [], {
+      defaultDate: 'today'
+    });
+    const cal = (await renderPromise) as unknown as MockCalendarInstance;
+    expect(cal.options.initialDate).toBeUndefined();
+  });
 });

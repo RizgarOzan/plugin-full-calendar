@@ -21,7 +21,6 @@ import {
   App,
   DropdownComponent,
   PluginSettingTab,
-  SettingDefinitionItem,
   setIcon,
   Setting,
   TFile,
@@ -266,6 +265,11 @@ export function addCalendarButton(
                 const finalSources: CalendarInfo[] = [];
 
                 for (const finalConfig of configs) {
+                  const effectiveType =
+                    typeof finalConfig.type === 'string' && finalConfig.type
+                      ? (finalConfig.type as CalendarInfo['type'])
+                      : (providerType as CalendarInfo['type']);
+
                   const candidateId =
                     typeof finalConfig.id === 'string' &&
                     finalConfig.id &&
@@ -274,11 +278,11 @@ export function addCalendarButton(
                     providerType !== 'googletasks' &&
                     providerType !== 'outlook'
                       ? finalConfig.id
-                      : generateCalendarId(providerType as CalendarInfo['type'], existingIds);
+                      : generateCalendarId(effectiveType, existingIds);
                   existingIds.push(candidateId);
 
                   const partialSource = makeDefaultPartialCalendarSource(
-                    providerType as CalendarInfo['type'],
+                    effectiveType,
                     existingCalendarColors
                   );
 
@@ -316,7 +320,7 @@ export function addCalendarButton(
                   } as CalendarInfo;
 
                   if (
-                    (providerType === 'caldav' || providerType === 'caldavtasks') &&
+                    (effectiveType === 'caldav' || effectiveType === 'caldavtasks') &&
                     typeof finalConfig.password === 'string' &&
                     finalConfig.password
                   ) {
@@ -386,10 +390,6 @@ export class FullCalendarSettingTab extends PluginSettingTab {
     void PluginState.flushDebouncedSave();
     this.unmountReactRoots();
     super.hide();
-  }
-
-  getSettingDefinitions(): SettingDefinitionItem[] {
-    return [];
   }
 
   display(): void {
@@ -850,6 +850,9 @@ export class FullCalendarSettingTab extends PluginSettingTab {
         renderApiAccessSettings(containerEl, this.plugin, () => {
           this.renderSettings();
         });
+        if (this.plugin.agentManager) {
+          this.plugin.agentManager.renderSettings(containerEl);
+        }
         break;
       }
     }

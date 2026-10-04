@@ -60,4 +60,98 @@ END:VCALENDAR`);
       expect(renderedEnd.toFormat('HH:mm')).not.toBe(_season === 'summer' ? '13:30' : '12:30');
     }
   );
+
+  it('correctly maps Outlook Exchange E. South America Standard Time with VTIMEZONE', () => {
+    const saoPauloSettings: FullCalendarSettings = {
+      ...DEFAULT_SETTINGS,
+      displayTimezone: 'America/Sao_Paulo'
+    };
+
+    const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:Microsoft Exchange Server 2010
+BEGIN:VTIMEZONE
+TZID:E. South America Standard Time
+BEGIN:STANDARD
+DTSTART:16010101T000000
+TZOFFSETFROM:-0300
+TZOFFSETTO:-0300
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:outlook-exchange-saopaulo-1
+DTSTART;TZID=E. South America Standard Time:20261015T140000
+DTEND;TZID=E. South America Standard Time:20261015T150000
+SUMMARY:Exchange Team Meeting
+END:VEVENT
+END:VCALENDAR`;
+
+    const events = getEventsFromICS(icsContent);
+    expect(events).toHaveLength(1);
+    const event = events[0];
+
+    expect(event).toMatchObject({
+      type: 'single',
+      allDay: false,
+      startTime: '14:00',
+      endTime: '15:00',
+      timezone: 'America/Sao_Paulo'
+    });
+
+    const eventInput = toEventInput('outlook-exchange-saopaulo-1', event, saoPauloSettings);
+    expect(eventInput).not.toBeNull();
+
+    const startDt = DateTime.fromISO(String(eventInput?.start), { setZone: true });
+    expect(startDt.toFormat('HH:mm')).toBe('14:00');
+    expect(startDt.setZone('America/Sao_Paulo').toFormat('HH:mm')).toBe('14:00');
+  });
+
+  it('falls back to VTIMEZONE offset and logs warning when timezone is not in the dictionary', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:Custom Enterprise Server 1.0
+BEGIN:VTIMEZONE
+TZID:Acme Corp Custom Standard Time
+BEGIN:STANDARD
+DTSTART:16010101T000000
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0400
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:custom-tz-event-1
+DTSTART;TZID=Acme Corp Custom Standard Time:20261015T140000
+DTEND;TZID=Acme Corp Custom Standard Time:20261015T150000
+SUMMARY:Custom Timezone Meeting
+END:VEVENT
+END:VCALENDAR`;
+
+    const events = getEventsFromICS(icsContent);
+    expect(events).toHaveLength(1);
+    const event = events[0];
+
+    expect(event).toMatchObject({
+      type: 'single',
+      allDay: false,
+      startTime: '14:00',
+      endTime: '15:00',
+      timezone: 'UTC-4'
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Unrecognized timezone identifier "Acme Corp Custom Standard Time". Falling back to VTIMEZONE offset'
+      )
+    );
+
+    const eventInput = toEventInput('custom-tz-event-1', event, settings);
+    expect(eventInput).not.toBeNull();
+
+    const startDt = DateTime.fromISO(String(eventInput?.start), { setZone: true });
+    expect(startDt.offset).toBe(-240); // -04:00 = -240 minutes
+
+    warnSpy.mockRestore();
+  });
 });

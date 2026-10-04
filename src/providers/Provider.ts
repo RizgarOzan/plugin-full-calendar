@@ -78,6 +78,7 @@ export interface ProviderEventContext {
   display?: string;
   title: string;
   start?: Date | null;
+  startStr?: string | null;
   plugin: FullCalendarPlugin;
 }
 

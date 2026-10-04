@@ -55,6 +55,9 @@ export function resolveCalendarRenderConfig(
 
   const resolvedDayMaxEvents = overrides.dayMaxEvents !== undefined ? overrides.dayMaxEvents : true;
 
+  const resolvedDefaultDate =
+    overrides.defaultDate !== undefined ? overrides.defaultDate : calendarConfig.defaultDate;
+
   const baseResolvedProps: ResolvedCalendarProps = {
     timeZone: resolvedTimeZone,
     enableAdvancedCategorization: resolvedEnableAdvancedCategorization,
@@ -63,7 +66,8 @@ export function resolveCalendarRenderConfig(
     highlightCurrentOrNextEvent: resolvedHighlight,
     dayMaxEvents: resolvedDayMaxEvents,
     timeGridDayHeaderFormat: resolvedDayHeaderFormat,
-    businessHours: calendarConfig.businessHours ?? globalSettings.businessHours
+    businessHours: calendarConfig.businessHours ?? globalSettings.businessHours,
+    defaultDate: resolvedDefaultDate
   };
 
   return {

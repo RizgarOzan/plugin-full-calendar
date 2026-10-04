@@ -88,6 +88,7 @@ export class CalendarView extends ItemView implements ViewContext {
   private uiHandler: ViewUIHandler;
   private interactionHandler: ViewEventInteractionHandler;
   private settingsHandler: ViewSettingsHandler;
+  private agentWriteBar: import('../features/agent').AgentWriteBar | null = null;
 
   private renderConfig: ResolvedCalendarProps | null = null;
 
@@ -274,6 +275,7 @@ export class CalendarView extends ItemView implements ViewContext {
             forceNarrow: this.inSidebar,
             onViewChange: handleViewChange,
             initialView: calendarConfig.initialView,
+            defaultDate: calendarConfig.defaultDate,
             slotMinTime: calendarConfig.slotMinTime,
             slotMaxTime: calendarConfig.slotMaxTime,
             allDaySlot: calendarConfig.allDaySlot,
@@ -493,6 +495,13 @@ export class CalendarView extends ItemView implements ViewContext {
           hideLoadingIndicators();
         }
       })();
+
+      if (PluginState.getSettings().agent?.enabled !== false && this.plugin.agentManager) {
+        this.agentWriteBar?.destroy();
+        this.agentWriteBar = this.plugin.agentManager.createWriteBar(calendarShellEl, () => {
+          this.refreshEventSourcesFromCache();
+        });
+      }
     })();
   }
 
@@ -508,6 +517,10 @@ export class CalendarView extends ItemView implements ViewContext {
   onunload(): void {
     PluginState.getInternalAPI().unregisterView(this);
     this.searchHandler.onunload();
+    if (this.agentWriteBar) {
+      this.agentWriteBar.destroy();
+      this.agentWriteBar = null;
+    }
     if (this.fullCalendarView) {
       this.fullCalendarView.destroy();
       this.fullCalendarView = null;

@@ -44,6 +44,7 @@ export class ViewSettingsHandler {
       const resolvedProps = resolveCalendarRenderConfig(calendarConfig, updatedSettings, {
         forceNarrow: this.ctx.inSidebar,
         initialView: calendarConfig.initialView,
+        defaultDate: calendarConfig.defaultDate,
         slotMinTime: calendarConfig.slotMinTime,
         slotMaxTime: calendarConfig.slotMaxTime,
         allDaySlot: calendarConfig.allDaySlot,
