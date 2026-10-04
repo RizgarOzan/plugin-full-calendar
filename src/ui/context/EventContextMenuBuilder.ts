@@ -121,6 +121,7 @@ export async function openEventContextMenu(
       display: eventApi.display,
       title: eventApi.title,
       start: eventApi.start,
+      startStr: eventApi.startStr,
       plugin
     };
 
@@ -219,7 +220,12 @@ async function buildProviderActions(
 }
 
 function getContextInstanceDate(context: ProviderEventContext): string | undefined {
-  return getEventInstanceDate(context.start, context.event.allDay, context.event.timezone);
+  return getEventInstanceDate(
+    context.start,
+    context.event.allDay,
+    context.event.timezone,
+    context.startStr
+  );
 }
 
 async function buildNavigationActions(

@@ -18,7 +18,7 @@ import { showNotice } from '../../utils/showNotice';
 
 import { PluginState } from '../../core/PluginState';
 
-import { DateTime, Settings } from 'luxon';
+import { DateTime, FixedOffsetZone, Settings } from 'luxon';
 import ical from 'ical.js';
 
 import FullCalendarPlugin from '../../main';
@@ -38,6 +38,15 @@ type RRuleExpandFn = (
  */
 interface RRuleSetInternal extends RRuleSetLike {
   _dtstart?: Date;
+  dtstart?: () => Date;
+  _rrule?: {
+    options?: { tzid?: string | null; until?: Date | null };
+    origOptions?: { tzid?: string | null };
+  }[];
+  _exrule?: {
+    options?: { tzid?: string | null; until?: Date | null };
+    origOptions?: { tzid?: string | null };
+  }[];
   between?: (after: Date, before: Date, inc?: boolean) => Date[];
 }
 
@@ -286,48 +295,124 @@ function mapWindowsTimezoneToIANA(windowsTz: string): string | null {
 }
 
 /**
+ * Sanitizes a timezone string by trimming whitespace, stripping enclosing quotes,
+ * and returning null if empty.
+ */
+function sanitizeTimezoneString(zone?: string | null): string | null {
+  if (!zone || typeof zone !== 'string') {
+    return null;
+  }
+  const clean = zone
+    .trim()
+    .replace(/^["']+|["']+$/g, '')
+    .trim();
+  if (clean.length === 0 || clean.toLowerCase() === 'floating') {
+    return null;
+  }
+  return clean;
+}
+
+/**
  * Normalizes a timezone identifier to an IANA timezone identifier.
  * Handles UTC ('Z'), Windows timezone identifiers, and IANA identifiers.
  */
 export function normalizeTimezone(zone: string | undefined | null): string {
-  // Handle undefined, null, or empty strings
-  if (!zone || zone.trim() === '') {
+  const cleanZone = sanitizeTimezoneString(zone);
+  if (!cleanZone) {
     return 'utc';
   }
 
   // Handle UTC
-  if (zone === 'Z' || zone.toLowerCase() === 'utc') {
+  if (cleanZone === 'Z' || cleanZone.toLowerCase() === 'utc') {
     return 'utc';
   }
 
   // Check if it's already a valid IANA timezone
   try {
-    const testDt = DateTime.now().setZone(zone);
+    const testDt = DateTime.now().setZone(cleanZone);
     if (testDt.isValid) {
-      return zone;
+      return cleanZone;
     }
   } catch {
     // Not a valid IANA timezone, continue to Windows mapping
   }
 
   // Try to map Windows timezone to IANA
-  const mapped = mapWindowsTimezoneToIANA(zone);
+  const mapped = mapWindowsTimezoneToIANA(cleanZone);
   if (mapped) {
     return mapped;
   }
 
   // Return original if no mapping found (will be handled by caller)
-  return zone;
+  return cleanZone;
+}
+
+/**
+ * Resolves and sanitizes the source timezone for an event, falling back in order
+ * to an optional fallback timezone, display timezone, or UTC.
+ * Strips quotes, normalizes Windows/IANA names, verifies Luxon validity, and preserves uppercase RFC 5545 UTC formatting.
+ *
+ * @param eventTimezone Timezone identifier declared on the event (if any).
+ * @param fallbackZone Fallback timezone identifier if eventTimezone is absent or invalid.
+ */
+export function resolveSourceZone(
+  eventTimezone?: string | null,
+  fallbackZone?: string | null
+): string {
+  const cleanEvent = sanitizeTimezoneString(eventTimezone);
+  if (cleanEvent) {
+    if (cleanEvent === 'Z' || cleanEvent.toUpperCase() === 'UTC') {
+      return 'UTC';
+    }
+    const norm = normalizeTimezone(cleanEvent);
+    try {
+      if (DateTime.now().setZone(norm).isValid) {
+        return norm;
+      }
+    } catch {
+      // Invalid event timezone, fall through to fallbackZone
+    }
+  }
+
+  const cleanFallback = sanitizeTimezoneString(fallbackZone);
+  if (cleanFallback) {
+    if (cleanFallback === 'Z' || cleanFallback.toUpperCase() === 'UTC') {
+      return 'UTC';
+    }
+    const norm = normalizeTimezone(cleanFallback);
+    try {
+      if (DateTime.now().setZone(norm).isValid) {
+        return norm;
+      }
+    } catch {
+      // Invalid fallback timezone, fall through to UTC
+    }
+  }
+
+  return 'UTC';
 }
 
 /**
  * Resolves the effective timezone for an event or display context.
- * Falls back in order: eventTimezone -> settings.displayTimezone -> system timezone.
+ * Falls back in order: eventTimezone -> settings.displayTimezone -> system timezone -> UTC.
+ * Guaranteed to return a valid IANA timezone, 'UTC', or 'local'.
  */
 export function resolveEffectiveTimezone(eventTimezone?: string | null): string {
-  if (eventTimezone && eventTimezone.trim() !== '') {
-    return normalizeTimezone(eventTimezone);
+  const clean = sanitizeTimezoneString(eventTimezone);
+  if (clean) {
+    if (clean === 'Z' || clean.toUpperCase() === 'UTC') {
+      return 'UTC';
+    }
+    const norm = normalizeTimezone(clean);
+    try {
+      if (DateTime.now().setZone(norm).isValid) {
+        return norm;
+      }
+    } catch {
+      // Invalid event timezone, fallback below
+    }
   }
+
   let displayTimezone: string | null | undefined;
   try {
     displayTimezone = PluginState.getSettings().displayTimezone;
@@ -343,7 +428,25 @@ export function resolveEffectiveTimezone(eventTimezone?: string | null): string 
       ? Settings.defaultZone.name
       : undefined;
 
-  return displayTimezone || defaultZoneName || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const candidate = sanitizeTimezoneString(
+    displayTimezone || defaultZoneName || Intl.DateTimeFormat().resolvedOptions().timeZone
+  );
+
+  if (candidate) {
+    if (candidate === 'Z' || candidate.toUpperCase() === 'UTC') {
+      return 'UTC';
+    }
+    const normCandidate = normalizeTimezone(candidate);
+    try {
+      if (DateTime.now().setZone(normCandidate).isValid) {
+        return normCandidate;
+      }
+    } catch {
+      // Fall through to UTC
+    }
+  }
+
+  return 'UTC';
 }
 
 /**
@@ -360,14 +463,18 @@ export function getEventInstanceDate(
   if (typeof start === 'string') {
     return DateTime.fromISO(start).toISODate() || undefined;
   }
+  const effectiveZone = resolveEffectiveTimezone(timezone);
   if (allDay) {
+    if (startStr) {
+      const fromStr = DateTime.fromISO(startStr).toISODate();
+      if (fromStr) return fromStr;
+    }
     return (
-      (startStr ? DateTime.fromISO(startStr).toISODate() : null) ||
+      DateTime.fromJSDate(start).setZone(effectiveZone).toISODate() ||
       DateTime.fromJSDate(start, { zone: 'utc' }).toISODate() ||
       undefined
     );
   }
-  const effectiveZone = resolveEffectiveTimezone(timezone);
   return DateTime.fromJSDate(start).setZone(effectiveZone).toISODate() || undefined;
 }
 
@@ -452,18 +559,60 @@ export function parseTimezoneAwareString(t: ical.Time): DateTime {
 
   // Check if setting the zone resulted in an invalid DateTime.
   if (!zonedDt.isValid) {
-    // Attempt UTC fallback
-    zonedDt = DateTime.fromObject(
-      {
-        year: t.year,
-        month: t.month,
-        day: t.day,
-        hour: t.hour,
-        minute: t.minute,
-        second: t.second || 0
-      },
-      { zone: 'utc' }
-    );
+    // Attempt fallback using VTIMEZONE offset if available from ical.Time
+    let offsetSeconds: number | undefined;
+    const candidateTime = t as unknown as { utcOffset?: () => number };
+    try {
+      if (typeof candidateTime.utcOffset === 'function') {
+        const val = candidateTime.utcOffset();
+        if (typeof val === 'number' && !Number.isNaN(val)) {
+          offsetSeconds = val;
+        }
+      }
+    } catch {
+      // Ignore calculation error
+    }
+
+    if (offsetSeconds !== undefined && t.zone && t.zone.tzid && t.zone.tzid !== 'floating') {
+      const offsetMinutes = Math.round(offsetSeconds / 60);
+      const fixedZone = FixedOffsetZone.instance(offsetMinutes);
+      zonedDt = DateTime.fromObject(
+        {
+          year: t.year,
+          month: t.month,
+          day: t.day,
+          hour: t.hour,
+          minute: t.minute,
+          second: t.second || 0
+        },
+        { zone: fixedZone }
+      );
+      if (zonedDt.isValid) {
+        console.warn(
+          `Full Calendar Timezone: Unrecognized timezone identifier "${rawZone}". Falling back to VTIMEZONE offset (${zonedDt.zoneName}).`
+        );
+      }
+    }
+
+    // If still invalid or no VTIMEZONE offset was available, fallback to UTC
+    if (!zonedDt.isValid) {
+      if (rawZone && rawZone !== 'utc') {
+        console.warn(
+          `Full Calendar Timezone: Unrecognized timezone identifier "${rawZone}" with no valid offset. Falling back to UTC.`
+        );
+      }
+      zonedDt = DateTime.fromObject(
+        {
+          year: t.year,
+          month: t.month,
+          day: t.day,
+          hour: t.hour,
+          minute: t.minute,
+          second: t.second || 0
+        },
+        { zone: 'utc' }
+      );
+    }
 
     if (!zonedDt.isValid) {
       // If even UTC fails, try parsing the raw value
@@ -507,19 +656,26 @@ export function parseTimezoneAwareString(t: ical.Time): DateTime {
  * ## What this patch does
  *
  * 1. Extracts the stable wall-clock time from `_dtstart.getUTCHours/Minutes/Seconds`
- * 2. Extracts the calendar date from each recurrence's browser-local fields
- * 3. Constructs the correct Luxon DateTime in the event's source timezone (tzid)
- * 4. Converts to true UTC epoch via `sourceDt.toMillis()`
- * 5. Passes the true UTC epoch to `calendarDateEnv.createMarker()` which
- *    produces a proper FullCalendar marker (UTC fields = display-tz wall-clock)
+ * 2. Extracts the calendar date from each recurrence's UTC fields
+ * ## What this patch does
  *
- * By delegating the source→display timezone conversion to FullCalendar's own
- * `createMarker()`, this avoids double-conversion and works correctly for all
- * display timezone combinations (DST and non-DST alike).
+ * 1. Temporarily clears `tzid` during `between()` so rrule.js operates in pure floating UTC
+ *    mode, completely bypassing its flawed `rezonedDate()` calculation and eliminating
+ *    OS/Electron system timezone leakage and cross-midnight date shifts.
+ * 2. Aligns any UTC UNTIL boundaries to source timezone wall-clock time so occurrences in
+ *    positive UTC offsets are not prematurely clipped.
+ * 3. Extracts uncorrupted occurrence dates and hours directly from each generated Date
+ *    (fully preserving multi-hour `BYHOUR` rules).
+ * 4. Reconstructs the exact Luxon DateTime in the event's source timezone (`tzid`).
+ * 5. Translates into the target display timezone using Luxon.
+ * 6. Constructs the FullCalendar DateMarker directly in UTC fields
+ *    (`new Date(Date.UTC(displayDt.year, displayDt.month - 1, displayDt.day, displayDt.hour, displayDt.minute, displayDt.second, displayDt.millisecond))`),
+ *    bypassing FullCalendar's internal DateEnv/createMarker() to eliminate
+ *    OS/Electron system timezone leakage.
  */
 export function patchRRuleTimezoneExpansion(
   rrulePlugin: RRulePluginLike,
-  settingsTimeZone: string | undefined | null
+  settingsTimeZone?: string | null
 ) {
   // Save the truly original expand function ONCE
   if (!_originalRRuleExpand) {
@@ -533,21 +689,164 @@ export function patchRRuleTimezoneExpansion(
     fr: RRuleFrameRange,
     de: RRuleDateEnvLike
   ) {
-    const tzid = errd.rruleSet.tzid();
+    const rsetLike = errd.rruleSet as
+      (RRuleSetInternal & { options?: { tzid?: string | null } }) | undefined;
+    const hasTzidMethod = typeof rsetLike?.tzid === 'function';
+    const rawTzid = hasTzidMethod ? rsetLike?.tzid() : rsetLike?.options?.tzid;
+    const tzid =
+      rawTzid && typeof rawTzid === 'string' && rawTzid.trim() !== ''
+        ? resolveSourceZone(rawTzid)
+        : null;
 
-    if (tzid && settingsTimeZone) {
+    if (tzid) {
+      const activeZone =
+        typeof (de as { timeZone?: string })?.timeZone === 'string' &&
+        (de as { timeZone?: string }).timeZone !== 'local' &&
+        (de as { timeZone?: string }).timeZone !== ''
+          ? (de as { timeZone?: string }).timeZone
+          : settingsTimeZone;
+      const targetDisplayZone = resolveEffectiveTimezone(activeZone);
       const rruleObj = errd.rruleSet as RRuleSetInternal;
 
       // Critical: bypass FullCalendar's faulty dateEnv.toDate path by expanding directly
-      // from rruleSet. We mimic FullCalendar's +/-1 day framing leeway.
+      // from rruleSet. We extend leeway to 48 hours to safely span all global timezones (+/- 26h max).
       const frameStart = new Date(fr.start);
       const frameEnd = new Date(fr.end);
-      const leewayMs = 24 * 60 * 60 * 1000;
+      const leewayMs = 48 * 60 * 60 * 1000;
       const rangeStart = new Date(frameStart.getTime() - leewayMs);
       const rangeEnd = new Date(frameEnd.getTime() + leewayMs);
 
-      const rawExpandedDates =
-        typeof rruleObj.between === 'function' ? rruleObj.between(rangeStart, rangeEnd) : null;
+      // Temporarily clear tzid from the rrule set and its child rules during between().
+      // When tzid is set, rrule.js runs rezonedDate() which corrupts recurrence dates by
+      // subtracting (tzid - system_offset). Clearing tzid ensures rrule.js operates in pure
+      // floating UTC, generating uncorrupted wall-clock dates and preserving all BYHOUR entries.
+      const originalSetTzid = hasTzidMethod ? rsetLike?.tzid() : rsetLike?.options?.tzid;
+      const rrules = Array.isArray(rsetLike?._rrule)
+        ? rsetLike._rrule
+        : rsetLike?.options
+          ? [
+              rsetLike as unknown as {
+                options?: { tzid?: string | null; until?: Date | null };
+                origOptions?: { tzid?: string | null };
+              }
+            ]
+          : [];
+      const exrules = Array.isArray(rsetLike?._exrule) ? rsetLike._exrule : [];
+      const originalRuleTzids = rrules.map(r => r?.options?.tzid);
+      const originalExruleTzids = exrules.map(r => r?.options?.tzid);
+      const originalUntils = rrules.map(r => r?.options?.until);
+      const originalExruleUntils = exrules.map(r => r?.options?.until);
+
+      let rawExpandedDates: Date[] | null;
+      try {
+        if (hasTzidMethod) {
+          try {
+            (rsetLike as unknown as { tzid: (v: string | null) => void }).tzid(null);
+          } catch {
+            // Getter-only in custom test stubs
+          }
+        }
+        if (rsetLike?.options) {
+          rsetLike.options.tzid = null;
+        }
+        rrules.forEach((r, idx) => {
+          if (r?.options) {
+            r.options.tzid = null;
+            const origUntil = originalUntils[idx];
+            if (r.options.until && origUntil) {
+              // RFC 5545 specifies UNTIL in UTC for zoned recurrences. Align UTC until
+              // to source timezone wall-clock components so rrule.js doesn't drop occurrences
+              // in positive timezone offsets.
+              const dtLocal = DateTime.fromJSDate(origUntil, { zone: 'utc' }).setZone(tzid);
+              if (dtLocal.isValid) {
+                r.options.until = new Date(
+                  Date.UTC(
+                    dtLocal.year,
+                    dtLocal.month - 1,
+                    dtLocal.day,
+                    dtLocal.hour,
+                    dtLocal.minute,
+                    dtLocal.second,
+                    dtLocal.millisecond
+                  )
+                );
+              }
+            }
+          }
+          if (r?.origOptions) {
+            r.origOptions.tzid = null;
+          }
+        });
+        exrules.forEach((r, idx) => {
+          if (r?.options) {
+            r.options.tzid = null;
+            const origUntil = originalExruleUntils[idx];
+            if (r.options.until && origUntil) {
+              const dtLocal = DateTime.fromJSDate(origUntil, { zone: 'utc' }).setZone(tzid);
+              if (dtLocal.isValid) {
+                r.options.until = new Date(
+                  Date.UTC(
+                    dtLocal.year,
+                    dtLocal.month - 1,
+                    dtLocal.day,
+                    dtLocal.hour,
+                    dtLocal.minute,
+                    dtLocal.second,
+                    dtLocal.millisecond
+                  )
+                );
+              }
+            }
+          }
+          if (r?.origOptions) {
+            r.origOptions.tzid = null;
+          }
+        });
+
+        // Flush any internal rrule caching to ensure recalculation with cleared tzid
+        if ((rruleObj as unknown as { _cache?: unknown })._cache) {
+          (rruleObj as unknown as { _cache?: unknown })._cache = null;
+        }
+        rrules.forEach(r => {
+          if ((r as unknown as { _cache?: unknown })?._cache) {
+            (r as unknown as { _cache?: unknown })._cache = null;
+          }
+        });
+
+        rawExpandedDates =
+          typeof rruleObj.between === 'function' ? rruleObj.between(rangeStart, rangeEnd) : null;
+      } finally {
+        if (hasTzidMethod) {
+          try {
+            (rsetLike as unknown as { tzid: (v: string | null | undefined) => void }).tzid(
+              originalSetTzid
+            );
+          } catch {
+            // Getter-only in custom test stubs
+          }
+        }
+        if (rsetLike?.options) {
+          rsetLike.options.tzid = originalSetTzid;
+        }
+        rrules.forEach((r, idx) => {
+          if (r?.options) {
+            r.options.tzid = originalRuleTzids[idx];
+            r.options.until = originalUntils[idx];
+          }
+          if (r?.origOptions) {
+            r.origOptions.tzid = originalRuleTzids[idx];
+          }
+        });
+        exrules.forEach((r, idx) => {
+          if (r?.options) {
+            r.options.tzid = originalExruleTzids[idx];
+            r.options.until = originalExruleUntils[idx];
+          }
+          if (r?.origOptions) {
+            r.origOptions.tzid = originalExruleTzids[idx];
+          }
+        });
+      }
 
       if (!rawExpandedDates) {
         // Defensive fallback for unexpected rruleSet shapes.
@@ -555,19 +854,8 @@ export function patchRRuleTimezoneExpansion(
       }
 
       return rawExpandedDates.map((d: Date) => {
-        // --- Extract stable time components ---
-        // _dtstart.getUTCHours() reliably gives the literal hour from the DTSTART string.
-        // Use UTC getters for recurrence dates because rrule.js encodes wall-clock values
-        // in UTC fields. Local getters can leak system timezone and shift the calendar day.
-        const baseHour = rruleObj._dtstart ? rruleObj._dtstart.getUTCHours() : d.getUTCHours();
-        const baseMinute = rruleObj._dtstart
-          ? rruleObj._dtstart.getUTCMinutes()
-          : d.getUTCMinutes();
-        const baseSecond = rruleObj._dtstart
-          ? rruleObj._dtstart.getUTCSeconds()
-          : d.getUTCSeconds();
-
         // --- Reconstruct correct wall-clock time in the event's SOURCE timezone ---
+        // d contains uncorrupted wall-clock values in its UTC fields.
         // Luxon handles DST automatically: e.g. "11:00 Europe/Bucharest" yields
         // UTC+3 in summer (EEST) and UTC+2 in winter (EET).
         const sourceDt = DateTime.fromObject(
@@ -575,24 +863,38 @@ export function patchRRuleTimezoneExpansion(
             year: d.getUTCFullYear(),
             month: d.getUTCMonth() + 1, // luxon months are 1-12
             day: d.getUTCDate(),
-            hour: baseHour,
-            minute: baseMinute,
-            second: baseSecond
+            hour: d.getUTCHours(),
+            minute: d.getUTCMinutes(),
+            second: d.getUTCSeconds(),
+            millisecond: d.getUTCMilliseconds()
           },
           { zone: tzid }
         );
 
-        // --- Produce a correct FullCalendar marker ---
-        // expand() must return MARKERS: Date objects where UTC fields encode
-        // wall-clock time in the display timezone. We pass the true UTC epoch
-        // to FullCalendar's own createMarker(), which uses the luxon3 plugin
-        // to convert UTC → display-tz wall-clock and store it in UTC fields.
-        // This is the same path that non-recurring events take, ensuring
-        // correctness for all display timezone combinations.
-        const trueUtcMs = sourceDt.toMillis();
-        const marker = de.createMarker(new Date(trueUtcMs));
+        if (!sourceDt.isValid) {
+          return de.createMarker(d);
+        }
 
-        return marker;
+        // --- Rezone to display timezone and produce FullCalendar DateMarker ---
+        // In FullCalendar's internal DateMarker representation, UTC fields store
+        // the wall-clock time in the active display timezone.
+        // Luxon deterministically computes target display wall-clock time.
+        const displayDt = sourceDt.setZone(targetDisplayZone);
+        if (!displayDt.isValid) {
+          return de.createMarker(new Date(sourceDt.toMillis()));
+        }
+
+        return new Date(
+          Date.UTC(
+            displayDt.year,
+            displayDt.month - 1,
+            displayDt.day,
+            displayDt.hour,
+            displayDt.minute,
+            displayDt.second,
+            displayDt.millisecond
+          )
+        );
       });
     }
 

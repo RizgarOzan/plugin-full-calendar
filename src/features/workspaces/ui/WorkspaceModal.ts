@@ -11,6 +11,7 @@ import { WorkspaceSettings, generateWorkspaceId } from '../../../types/settings'
 import { CalendarInfo } from '../../../types/calendar_settings';
 import { t } from '../../i18n/i18n';
 import { listWritableCalendars } from '../../../utils/writableCalendars';
+import { createDatePicker, DatePicker } from '../../../ui/components/forms/DatePicker';
 
 export class WorkspaceModal extends Modal {
   plugin: FullCalendarPlugin;
@@ -23,6 +24,7 @@ export class WorkspaceModal extends Modal {
   private desktopViewDropdown!: DropdownComponent;
   private mobileViewDropdown!: DropdownComponent;
   private defaultDateInput!: TextComponent;
+  private datePicker: DatePicker | null = null;
   private visibleCalendarsContainer!: HTMLElement;
   private categoryFilterContainer!: HTMLElement;
   private businessHoursToggle!: ToggleComponent;
@@ -72,6 +74,10 @@ export class WorkspaceModal extends Modal {
   }
 
   onClose() {
+    if (this.datePicker) {
+      this.datePicker.destroy();
+      this.datePicker = null;
+    }
     const { contentEl } = this;
     contentEl.parentElement?.removeClass('ofc-settings-modal-wide');
     contentEl.parentElement?.removeClass('ofc-workspace-settings-modal');
@@ -161,10 +167,42 @@ export class WorkspaceModal extends Modal {
       .addText(text => {
         this.defaultDateInput = text;
         text
-          .setPlaceholder(t('modals.workspace.fields.defaultDate.placeholder'))
+          .setPlaceholder(t('modals.workspace.fields.defaultDate.placeholder') || 'Today')
           .setValue(this.workspace.defaultDate || '')
           .onChange(value => {
-            this.workspace.defaultDate = value || undefined;
+            const trimmed = value.trim();
+            this.workspace.defaultDate = trimmed || undefined;
+            if (this.datePicker) {
+              if (trimmed) {
+                this.datePicker.setDate(trimmed, false);
+              } else {
+                this.datePicker.clear();
+              }
+            }
+          });
+
+        this.datePicker = createDatePicker(text.inputEl, {
+          mode: 'single',
+          dateFormat: 'Y-m-d',
+          altInput: false,
+          defaultDate: this.workspace.defaultDate,
+          placeholder: t('modals.workspace.fields.defaultDate.placeholder') || 'Today',
+          onChange: (_selectedDates, dateStr) => {
+            this.workspace.defaultDate = dateStr || undefined;
+            text.setValue(dateStr || '');
+          }
+        });
+      })
+      .addExtraButton(button => {
+        button
+          .setIcon('cross')
+          .setTooltip(t('modals.workspace.fields.defaultDate.resetTooltip') || 'Reset to Today')
+          .onClick(() => {
+            this.workspace.defaultDate = undefined;
+            this.defaultDateInput.setValue('');
+            if (this.datePicker) {
+              this.datePicker.clear();
+            }
           });
       });
   }

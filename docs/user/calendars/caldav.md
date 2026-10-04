@@ -87,22 +87,19 @@ As above, you'll want to make an [app password](https://www.fastmail.help/hc/en-
 
 Under the `Access` dropdown, you can create a password restricted to the `Calendars (CalDAV)` scope.
 
-### URL
+### Server URL
 
-We need to deviate a bit from the [official Fastmail documentation](https://www.fastmail.help/hc/en-us/articles/1500000278342-Server-names-and-ports) here and reference the specific calendar endpoint for your account.
-
-If your email address used in the `Username` section is `user@example.com`, then your URL field will need to look like so:
+You can simply enter:
 
 ```
-https://caldav.fastmail.com/dav/principals/user/user@example.com/
+caldav.fastmail.com
 ```
 
+or `https://caldav.fastmail.com/`.
 
-If in doubt, you can find the specific URL by navigating to `Settings` -> `Calendars` and then click `Export` on any of the calendars you have.
+Full Calendar will automatically discover your principal and query your calendar home set using standard CalDAV auto-discovery (RFC 5397 / RFC 4791). Both your event calendars and all your Apple Reminders / task categories (*Habits*, *Work*, *Personal*, etc.) will be found and presented for selection.
 
-Under `CalDAV URL`, you can copy the URL but make sure you **only** copy up to the trailing slash after your email address as shown in the codeblock just above.
-
-![Fastmail export settings showing CalDAV URL path](../../assets/calendars/fastmail-url.png)
+If you prefer to connect directly to a specific collection without discovery, check **Manual collection URL** and provide the direct collection URL.
 
 ### Flythrough
 

@@ -107,5 +107,32 @@ category: "Work"
       const page = `# No frontmatter here`;
       expect(parseFrontmatterWithFallback(page)).toBeNull();
     });
+
+    it('parses bracketed arrays in fallback parser when YAML parser fails', () => {
+      const page = `---
+title: Unquoted: Title
+skipDates: ["2026-09-14", "2026-09-21"]
+daysOfWeek: [M, W]
+---`;
+      const result = parseFrontmatterWithFallback(page);
+      expect(result).toEqual({
+        title: 'Unquoted: Title',
+        skipDates: ['2026-09-14', '2026-09-21'],
+        daysOfWeek: ['M', 'W']
+      });
+    });
+  });
+
+  describe('array quoting in modifyFrontmatterString', () => {
+    it('properly quotes string elements in arrays like skipDates', () => {
+      const originalPage = `---
+title: "Recurring Note"
+type: recurring
+---`;
+      const modified = modifyFrontmatterString(originalPage, {
+        skipDates: ['2026-09-14', '2026-09-21']
+      });
+      expect(modified).toContain('skipDates: ["2026-09-14", "2026-09-21"]');
+    });
   });
 });

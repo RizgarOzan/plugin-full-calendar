@@ -77,7 +77,10 @@ function escapeYamlString(value: string): string {
 
 function stringifyYamlLine(k: string, v: PrintableAtom): string {
   if (v === null) return `${k}:`;
-  if (Array.isArray(v)) return `${k}: [${v.join(',')}]`;
+  if (Array.isArray(v)) {
+    const formatted = v.map(item => (typeof item === 'string' ? escapeYamlString(item) : item));
+    return `${k}: [${formatted.join(', ')}]`;
+  }
   if (typeof v === 'object') return `${k}: ${JSON.stringify(v)}`;
   if (typeof v === 'string') return `${k}: ${escapeYamlString(v)}`;
   return `${k}: ${v}`;
@@ -117,23 +120,35 @@ export function parseFrontmatterWithFallback(page: string): Record<string, unkno
 
     if (!key) continue;
 
-    if (
-      (rawVal.startsWith('"') && rawVal.endsWith('"') && rawVal.length >= 2) ||
-      (rawVal.startsWith("'") && rawVal.endsWith("'") && rawVal.length >= 2)
-    ) {
-      rawVal = rawVal.slice(1, -1);
-    }
-
-    if (rawVal === 'true') {
-      result[key] = true;
-    } else if (rawVal === 'false') {
-      result[key] = false;
-    } else if (rawVal === 'null' || rawVal === '') {
-      result[key] = null;
-    } else if (!isNaN(Number(rawVal)) && rawVal !== '') {
-      result[key] = Number(rawVal);
+    if (rawVal.startsWith('[') && rawVal.endsWith(']')) {
+      const inner = rawVal.slice(1, -1).trim();
+      if (!inner) {
+        result[key] = [];
+      } else {
+        result[key] = inner
+          .split(',')
+          .map(item => item.trim().replace(/^["']|["']$/g, ''))
+          .filter(Boolean);
+      }
     } else {
-      result[key] = rawVal;
+      if (
+        (rawVal.startsWith('"') && rawVal.endsWith('"') && rawVal.length >= 2) ||
+        (rawVal.startsWith("'") && rawVal.endsWith("'") && rawVal.length >= 2)
+      ) {
+        rawVal = rawVal.slice(1, -1);
+      }
+
+      if (rawVal === 'true') {
+        result[key] = true;
+      } else if (rawVal === 'false') {
+        result[key] = false;
+      } else if (rawVal === 'null' || rawVal === '') {
+        result[key] = null;
+      } else if (!isNaN(Number(rawVal)) && rawVal !== '') {
+        result[key] = Number(rawVal);
+      } else {
+        result[key] = rawVal;
+      }
     }
   }
 

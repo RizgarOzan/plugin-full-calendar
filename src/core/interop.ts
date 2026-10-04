@@ -25,6 +25,7 @@ import { getCalendarColors } from '../ui/calendar/utils';
 import { FullCalendarSettings } from '../types/settings';
 
 import { EventApi, EventInput } from '@fullcalendar/core';
+import { resolveSourceZone } from '../features/timezone/Timezone';
 
 /**
  * Functions for converting between the types used by the FullCalendar view plugin and
@@ -187,7 +188,10 @@ export function toEventInput(
     // ====================================================================
 
     // 1  Pick the zone
-    const sourceZone = event.timezone || settings.displayTimezone || DateTime.local().zoneName;
+    const sourceZone = resolveSourceZone(
+      event.timezone,
+      settings.displayTimezone || DateTime.local().zoneName
+    );
 
     // Use a recent default start date to avoid massive recurrence expansions when startRecur is absent.
     const startRecurDate =
@@ -337,7 +341,10 @@ export function toEventInput(
     };
 
     // Determine source and display timezones
-    const sourceZone = event.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const sourceZone = resolveSourceZone(
+      event.timezone,
+      settings.displayTimezone || DateTime.local().zoneName
+    );
 
     // Parse the event time in its source timezone first
     const dtstartStr = event.allDay ? null : combineDateTimeStrings(fm.startDate, fm.startTime);
@@ -444,7 +451,10 @@ export function toEventInput(
       }
     }
   } else if (event.type === 'single') {
-    const sourceZone = event.timezone || settings.displayTimezone || DateTime.local().zoneName;
+    const sourceZone = resolveSourceZone(
+      event.timezone,
+      settings.displayTimezone || DateTime.local().zoneName
+    );
 
     if (!event.allDay) {
       const startLocalStr = combineDateTimeStrings(event.date, event.startTime);
@@ -542,10 +552,10 @@ export function fromEventApi(
     }
   }
 
-  const sourceZone =
-    (!event.allDay && (extendedProps.sourceTimezone as string)) ||
-    settings.displayTimezone ||
-    Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const sourceZone = resolveSourceZone(
+    !event.allDay ? (extendedProps.sourceTimezone as string) : undefined,
+    settings.displayTimezone || DateTime.local().zoneName
+  );
   const isRecurring: boolean =
     !options?.forceSingle &&
     (extendedProps.daysOfWeek !== undefined ||

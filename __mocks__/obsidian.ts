@@ -1,4 +1,8 @@
 import { StateField } from '@codemirror/state';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import moment from 'moment';
+
+export { moment };
 
 const toForwardSlashes = (value: string): string => value.replace(/\\/g, "/");
 const joinPath = (...parts: string[]): string => {
@@ -120,10 +124,13 @@ export function normalizePath(path: string): string {
     return toForwardSlashes(path).replace(/\/+/g, "/");
 }
 
-export async function requestUrl(_url: string): Promise<{ text: string }> {
-    await Promise.resolve();
-    return { text: "{}" };
-}
+export const requestUrl = jest.fn().mockImplementation(async (_url: unknown) => ({
+    text: "{}",
+    status: 200,
+    headers: {},
+    arrayBuffer: new ArrayBuffer(0),
+    json: {}
+}));
 
 export const getLanguage = jest.fn().mockReturnValue("en");
 
@@ -196,5 +203,25 @@ export class Setting {
 
 export function setIcon(el: HTMLElement, iconId: string): void {}
 export const activeDocument = typeof document !== 'undefined' ? document : null;
+
+export class MarkdownRenderer {
+    static async render(
+        _app: unknown,
+        markdown: string,
+        el: HTMLElement,
+        _sourcePath?: string,
+        _component?: unknown
+    ): Promise<void> {
+        el.textContent = markdown;
+    }
+    static async renderMarkdown(
+        markdown: string,
+        el: HTMLElement,
+        _sourcePath?: string,
+        _component?: unknown
+    ): Promise<void> {
+        el.textContent = markdown;
+    }
+}
 
 

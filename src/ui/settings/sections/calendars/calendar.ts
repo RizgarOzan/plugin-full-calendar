@@ -28,6 +28,7 @@ import type { RecurringInstanceState } from '../../../../providers/Provider';
 import { createDateNavigation } from '../../../../features/navigation/DateNavigation';
 import {
   patchRRuleTimezoneExpansion,
+  resolveEffectiveTimezone,
   type RRulePluginLike
 } from '../../../../features/timezone/Timezone';
 import { PluginState } from '../../../../core/PluginState';
@@ -98,6 +99,7 @@ export interface ExtraRenderProps {
   footerToolbar?: false | object;
   height?: 'auto' | number | 'parent';
   weatherHide?: boolean;
+  defaultDate?: string;
 }
 
 type TimeGridDayHeaderFormat =
@@ -171,7 +173,7 @@ export async function renderCalendar(
     const rrulePlugin = ((rrule as unknown as { default?: RRulePluginLike }).default ||
       rrule) as unknown as RRulePluginLike;
 
-    patchRRuleTimezoneExpansion(rrulePlugin, settings?.timeZone);
+    patchRRuleTimezoneExpansion(rrulePlugin, resolveEffectiveTimezone(settings?.timeZone));
   }
 
   const {
@@ -1016,7 +1018,7 @@ export async function renderCalendar(
       ? { schedulerLicenseKey: 'GPL-My-Project-Is-Open-Source' }
       : {}),
     customButtons: customButtonConfig,
-    timeZone: settings?.timeZone,
+    timeZone: resolveEffectiveTimezone(settings?.timeZone),
     height: settings?.height,
     // Set the FullCalendar locale so month names, day names, and toolbar button
     // labels match the user's Obsidian language selection.
@@ -1038,6 +1040,9 @@ export async function renderCalendar(
     initialView:
       settings?.initialView?.[isNarrow ? 'mobile' : 'desktop'] ||
       (isNarrow ? 'timeGrid3Days' : 'timeGridWeek'),
+    ...(settings?.defaultDate && settings.defaultDate !== 'today'
+      ? { initialDate: settings.defaultDate }
+      : {}),
     nowIndicator: true,
     scrollTimeReset: false,
     dayMaxEvents: settings?.dayMaxEvents !== undefined ? settings.dayMaxEvents : true, // Use setting override or default to true
